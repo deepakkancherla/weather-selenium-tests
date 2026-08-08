@@ -21,6 +21,7 @@ The documentation is written so product owners, managers, developers, and tester
 
 | Document | Audience | Purpose |
 |---|---|---|
+| [Installation guide](docs/INSTALLATION.md) | New contributors | Software, access, verification, and planned setup commands |
 | [Test strategy](docs/TEST-STRATEGY.md) | Everyone | Scope, priorities, risks, and testing approach |
 | [Test catalog](docs/TEST-CATALOG.md) | Everyone | Every currently planned test, organized by user flow |
 | [Change impact guide](docs/CHANGE-IMPACT-GUIDE.md) | Developers and QA | What must be checked or updated after each type of change |
@@ -73,4 +74,3 @@ Tests are not silently deleted. When behavior changes, the test case, implementa
 ## Current status
 
 The repository, test strategy, and initial test catalog have been created. Test implementation has not started.
-
