@@ -117,7 +117,7 @@ Repository variables are under **Settings > Secrets and variables > Actions > Va
 
 ## Trigger from the separate application repository
 
-Cross-repository triggers require explicit credentials because GitHub does not allow one private repository's default token to start another repository automatically. The application pipeline should send a `repository_dispatch` event named `weather-app-deployed` with:
+Successful Vercel Preview and Production deployments are connected through the `weather-app` deployment-status workflow. It sends a `repository_dispatch` event named `weather-app-deployed` with:
 
 ```json
 {
@@ -130,7 +130,9 @@ Cross-repository triggers require explicit credentials because GitHub does not a
 }
 ```
 
-Use an organization-approved GitHub App or fine-grained token stored as an application-repository secret. Do not copy a personal token into either repository. Until that credential is approved, the push, pull-request, nightly, and manual triggers work independently.
+The integration requires `SELENIUM_REPO_TOKEN` in the application repository and `APP_STATUS_TOKEN` in this repository. Protected Vercel Preview deployments also require `VERCEL_AUTOMATION_BYPASS_SECRET` here. See [Cross-repository CI/CD](CROSS-REPOSITORY-CICD.md) for permissions, setup, result callbacks, coordinated application/test changes, and troubleshooting.
+
+Do not copy credential values into source, workflow inputs, variables, reports, or logs. Until the required secrets are configured, push, pull-request, nightly, and manual Selenium triggers continue to work independently, but automatic Vercel-to-Selenium dispatch cannot complete.
 
 ## Reading pass or failure
 

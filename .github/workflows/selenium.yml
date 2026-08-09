@@ -32,7 +32,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: selenium-${{ github.workflow }}-${{ github.ref }}
+  group: selenium-${{ github.workflow }}-${{ github.event.client_payload.application_sha || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -43,6 +43,7 @@ jobs:
     env:
       DEFAULT_BASE_URL: https://weather-app-nine-vert-81.vercel.app
       FIREBASE_WEB_API_KEY: ${{ vars.FIREBASE_WEB_API_KEY }}
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
 
     steps:
       - name: Check out Selenium repository
@@ -64,6 +65,10 @@ jobs:
           INPUT_BASE_URL: ${{ github.event.inputs.base_url }}
           DISPATCH_SUITE: ${{ github.event.client_payload.suite }}
           DISPATCH_BASE_URL: ${{ github.event.client_payload.base_url }}
+          DISPATCH_APP_SHA: ${{ github.event.client_payload.application_sha }}
+          DISPATCH_APP_REF: ${{ github.event.client_payload.application_ref }}
+          DISPATCH_APP_ENVIRONMENT: ${{ github.event.client_payload.application_environment }}
+          DISPATCH_STATUS_CONTEXT: ${{ github.event.client_payload.status_context }}
           CONFIGURED_BASE_URL: ${{ vars.TEST_BASE_URL }}
         run: |
           suite="smoke"
@@ -75,6 +80,37 @@ jobs:
           echo "suite=$suite" >> "$GITHUB_OUTPUT"
           echo "browser=$browser" >> "$GITHUB_OUTPUT"
           echo "base_url=$base_url" >> "$GITHUB_OUTPUT"
+          echo "application_sha=$DISPATCH_APP_SHA" >> "$GITHUB_OUTPUT"
+          echo "application_ref=$DISPATCH_APP_REF" >> "$GITHUB_OUTPUT"
+          echo "application_environment=$DISPATCH_APP_ENVIRONMENT" >> "$GITHUB_OUTPUT"
+          echo "status_context=$DISPATCH_STATUS_CONTEXT" >> "$GITHUB_OUTPUT"
+
+      - name: Verify application-status credential
+        if: github.event_name == 'repository_dispatch' && steps.settings.outputs.application_sha != ''
+        shell: bash
+        env:
+          APP_STATUS_TOKEN: ${{ secrets.APP_STATUS_TOKEN }}
+        run: |
+          if [[ -z "$APP_STATUS_TOKEN" ]]; then
+            echo "::error::Add the APP_STATUS_TOKEN repository secret before enabling deployment callbacks."
+            exit 1
+          fi
+
+      - name: Mark deployed application tests as pending
+        if: github.event_name == 'repository_dispatch' && steps.settings.outputs.application_sha != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.APP_STATUS_TOKEN }}
+          APP_SHA: ${{ steps.settings.outputs.application_sha }}
+          STATUS_CONTEXT: ${{ steps.settings.outputs.status_context }}
+          SUITE: ${{ steps.settings.outputs.suite }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh api --method POST "repos/deepakkancherla/weather-app/statuses/$APP_SHA" \
+            -f state=pending \
+            -f context="$STATUS_CONTEXT" \
+            -f description="Selenium $SUITE tests are running" \
+            -f target_url="$RUN_URL"
 
       - name: Show browser version
         if: steps.settings.outputs.browser == 'chrome'
@@ -98,12 +134,16 @@ jobs:
           SUITE: ${{ steps.settings.outputs.suite }}
           BROWSER: ${{ steps.settings.outputs.browser }}
           BASE_URL: ${{ steps.settings.outputs.base_url }}
+          APP_SHA: ${{ steps.settings.outputs.application_sha }}
+          APP_ENVIRONMENT: ${{ steps.settings.outputs.application_environment }}
         run: |
           {
             echo "## Selenium run"
             echo "- Suite: $SUITE"
             echo "- Browser: $BROWSER"
             echo "- Application: $BASE_URL"
+            if [[ -n "${APP_SHA:-}" ]]; then echo "- Application commit: $APP_SHA"; fi
+            if [[ -n "${APP_ENVIRONMENT:-}" ]]; then echo "- Application environment: $APP_ENVIRONMENT"; fi
             echo "- Automation commit: $GITHUB_SHA"
             echo "- Detailed JUnit results and failure evidence are attached below."
           } >> "$GITHUB_STEP_SUMMARY"
@@ -118,3 +158,29 @@ jobs:
             target/evidence/
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Report final result to application commit
+        if: always() && github.event_name == 'repository_dispatch' && steps.settings.outputs.application_sha != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.APP_STATUS_TOKEN }}
+          APP_SHA: ${{ steps.settings.outputs.application_sha }}
+          STATUS_CONTEXT: ${{ steps.settings.outputs.status_context }}
+          SUITE: ${{ steps.settings.outputs.suite }}
+          JOB_STATUS: ${{ job.status }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo "::error::APP_STATUS_TOKEN is unavailable; the application result cannot be updated."
+            exit 1
+          fi
+          case "$JOB_STATUS" in
+            success) state="success"; description="Selenium $SUITE tests passed" ;;
+            cancelled) state="error"; description="Selenium $SUITE tests were cancelled" ;;
+            *) state="failure"; description="Selenium $SUITE tests failed" ;;
+          esac
+          gh api --method POST "repos/deepakkancherla/weather-app/statuses/$APP_SHA" \
+            -f state="$state" \
+            -f context="$STATUS_CONTEXT" \
+            -f description="$description" \
+            -f target_url="$RUN_URL"

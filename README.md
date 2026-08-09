@@ -39,6 +39,7 @@ To watch the browser locally:
 | [Test cases](docs/TEST-CATALOG.md) | What each test proves and whether it is automated |
 | [Test data](docs/TEST-DATA-GUIDE.md) | Where accounts/weather come from and how cleanup works |
 | [Pipeline](docs/PIPELINE-GUIDE.md) | When GitHub runs tests and how anyone with access can run/view them |
+| [Cross-repository CI/CD](docs/CROSS-REPOSITORY-CICD.md) | How Vercel deployments trigger Selenium and return results to application commits |
 | [Changes](docs/CHANGE-IMPACT-GUIDE.md) | Exactly what to update when the application changes |
 | [Failures](docs/FAILURE-GUIDE.md) | How to investigate a red test without hiding defects |
 | [Strategy](docs/TEST-STRATEGY.md) | Scope, priorities, and testing principles |
