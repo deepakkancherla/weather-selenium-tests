@@ -14,7 +14,7 @@ class FavoriteTests extends BaseUiTest {
     @Tag("smoke")
     void fav001_userCanSaveCurrentCity() {
         TestUser user = createApiUser("FAV-001");
-        DashboardPage dashboard = logIn(user);
+        DashboardPage dashboard = logIn(user).waitForFavoritesReady();
 
         dashboard.toggleFavorite();
         dashboard.waitForFavoriteButton("Saved");
@@ -25,12 +25,12 @@ class FavoriteTests extends BaseUiTest {
     @Test
     void fav003_savedCityPersistsAfterSigningBackIn() {
         TestUser user = createApiUser("FAV-003");
-        DashboardPage dashboard = logIn(user);
+        DashboardPage dashboard = logIn(user).waitForFavoritesReady();
         dashboard.toggleFavorite();
         dashboard.waitForFavoriteButton("Saved");
         dashboard.logout().login(user.email(), user.password());
 
-        DashboardPage restoredDashboard = new DashboardPage(driver).waitUntilLoaded();
+        DashboardPage restoredDashboard = new DashboardPage(driver).waitUntilLoaded().waitForFavoritesReady();
         restoredDashboard.waitForFavoriteButton("Saved");
 
         assertEquals(1, restoredDashboard.favoriteCards().size());
@@ -39,7 +39,7 @@ class FavoriteTests extends BaseUiTest {
     @Test
     void fav004_userCanRemoveSavedCity() {
         TestUser user = createApiUser("FAV-004");
-        DashboardPage dashboard = logIn(user);
+        DashboardPage dashboard = logIn(user).waitForFavoritesReady();
         dashboard.toggleFavorite();
         dashboard.waitForFavoriteButton("Saved");
 
@@ -52,7 +52,6 @@ class FavoriteTests extends BaseUiTest {
     void fav006_newAccountStartsWithHelpfulEmptyState() {
         TestUser user = createApiUser("FAV-006");
 
-        assertTrue(logIn(user).emptyFavoritesIsVisible());
+        assertTrue(logIn(user).waitForFavoritesReady().emptyFavoritesIsVisible());
     }
 }
-

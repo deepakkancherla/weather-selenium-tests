@@ -16,10 +16,11 @@ The suite never uses either owner's personal Gmail account. A generated email lo
 1. `TestDataFactory` creates a unique email and strong password in memory.
 2. Most tests create the account directly through Firebase Auth REST, because registration itself is not what those tests are measuring.
 3. Registration tests create the account through the visible UI.
-4. Selenium performs only the user behavior under test.
-5. If the test fails, the framework saves a screenshot and page HTML.
-6. `BaseUiTest` signs in through Firebase REST and calls the Firebase delete-account endpoint.
-7. The browser closes even if cleanup encounters a problem.
+4. Selenium waits until the application reports that Firestore favorite loading is complete.
+5. Selenium performs only the user behavior under test.
+6. If the test fails, the framework saves a screenshot and page HTML.
+7. `BaseUiTest` signs in through Firebase REST and calls the Firebase delete-account endpoint.
+8. The browser closes even if cleanup encounters a problem.
 
 The REST client authenticates as the disposable user. It does not use Firebase Admin or a service-account key.
 
@@ -56,4 +57,3 @@ The REST client authenticates as the disposable user. It does not use Firebase A
 ## Cleanup failure
 
 If an account remains after a failed run, its `selenium+<case-id>-<random>` email makes it recognizable. Check the pipeline log for the originating case and fix cleanup before allowing repeated buildup. Do not manually delete broad collections or real-user records.
-

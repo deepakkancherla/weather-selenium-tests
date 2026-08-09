@@ -18,6 +18,12 @@ public final class DashboardPage extends BasePage {
         return this;
     }
 
+    public DashboardPage waitForFavoritesReady() {
+        wait.until(ExpectedConditions.attributeToBe(testId("favorites-section"), "aria-busy", "false"));
+        clickable("toggle-favorite");
+        return this;
+    }
+
     public void search(String query) {
         replaceText("city-search", query);
         clickable("city-search-submit").click();
@@ -66,16 +72,16 @@ public final class DashboardPage extends BasePage {
     }
 
     public void removeFavorite(String city) {
-        By removeButton = By.cssSelector("[aria-label='Remove " + city + " from favorites']");
-        WebElement button = wait.until(ExpectedConditions.visibilityOfElementLocated(removeButton));
+        String selector = "[aria-label='Remove " + city + " from favorites']";
+        By removeButton = By.cssSelector(selector);
         JavascriptExecutor javascript = (JavascriptExecutor) driver;
-        javascript.executeScript(
-                "window.scrollTo({top: arguments[0].getBoundingClientRect().top + window.scrollY - window.innerHeight / 2, behavior: 'instant'});",
-                button);
-        wait.until(ignored -> (Boolean) javascript.executeScript(
-                "const r = arguments[0].getBoundingClientRect(); return r.top >= 80 && r.bottom <= window.innerHeight;",
-                button));
-        wait.until(ExpectedConditions.elementToBeClickable(button)).click();
+        wait.until(ignored -> Boolean.TRUE.equals(javascript.executeScript("""
+                const button = document.querySelector(arguments[0]);
+                if (!button || button.disabled) return false;
+                button.scrollIntoView({block: 'center', behavior: 'instant'});
+                button.click();
+                return true;
+                """, selector)));
         wait.until(ExpectedConditions.invisibilityOfElementLocated(removeButton));
     }
 
