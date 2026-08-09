@@ -27,24 +27,74 @@ The workflow is named **Selenium Tests** and lives in `.github/workflows/seleniu
 
 Repository owner `deepakkancherla` already has access.
 
-1. Open `https://github.com/deepakkancherla/weather-selenium-tests`.
-2. Select **Actions**.
-3. Select **Selenium Tests** on the left.
-4. Select a run to see each step and its logs.
-5. On the run's Summary page, download `selenium-results-<run number>` under **Artifacts**.
+1. Open [weather-selenium-tests Actions](https://github.com/deepakkancherla/weather-selenium-tests/actions).
+2. Select **Selenium Tests** from the workflow list on the left.
+3. Select a run from the center of the page.
+4. Select the job name, such as **regression / chrome**.
+5. Expand **Run selected Selenium tests** to read the Maven output for every test class.
+6. Return to the run's **Summary** page to download `selenium-results-<run number>` under **Artifacts**.
 
-An artifact contains `surefire-reports` for all tests and `evidence` screenshots/page HTML when a test fails.
+The Maven output shows the number of executed, failed, errored, and skipped tests. A successful full run ends with output similar to:
+
+```text
+Tests run: 15, Failures: 0, Errors: 0, Skipped: 0
+BUILD SUCCESS
+```
 
 ## Start a manual run in GitHub
 
 1. Open **Actions** > **Selenium Tests**.
-2. Select **Run workflow**.
+2. Select **Run workflow** on the right side of the page.
 3. Keep branch `main`.
-4. Choose a suite and browser.
-5. Enter the Vercel or preview URL to test.
-6. Select the green **Run workflow** button.
+4. Choose the required test suite.
+5. Choose `chrome` or `firefox`.
+6. Enter the Vercel or preview URL to test. Normally keep `https://weather-app-nine-vert-81.vercel.app`.
+7. Select the green **Run workflow** button.
 
-Use `smoke` for a quick check. Use `regression` for every implemented case. Feature choices are `registration`, `authentication`, `weather`, `favorites`, and `session`.
+The available suite choices are:
+
+| Suite | What it runs | When to use it |
+|---|---|---|
+| `smoke` | Five critical user journeys | Quick deployment or framework check |
+| `regression` | Every implemented automated test | Release validation and full checks |
+| `registration` | Account creation and registration validation | Registration changes |
+| `authentication` | Login, incorrect credentials, required fields, and logout | Authentication changes |
+| `weather` | City search and weather display | Search or weather changes |
+| `favorites` | Save, retain, remove, and empty favorites | Firebase/Favorites changes |
+| `session` | Signed-in session after browser refresh | Session changes |
+
+After selecting **Run workflow**, refresh the page after a few seconds. The new run appears at the top. Its status uses these symbols:
+
+- Yellow circle: still running.
+- Green check: all selected tests passed.
+- Red X: at least one selected test failed.
+- Grey/cancelled: the run was manually cancelled or replaced by a newer run.
+
+## Download reports, screenshots, and page output
+
+1. Open a completed workflow run.
+2. Open its **Summary** page.
+3. Scroll to **Artifacts** near the bottom.
+4. Download `selenium-results-<run number>`.
+5. Extract the downloaded ZIP file.
+
+The extracted artifact contains:
+
+| Folder | Contents |
+|---|---|
+| `surefire-reports` | JUnit XML plus readable text results for every test class |
+| `evidence` | A PNG screenshot and HTML page source for each failed test |
+
+Screenshots and HTML evidence are generated only when a test fails. A successful run normally contains the JUnit reports without failure screenshots. Artifacts are retained for 14 days.
+
+For a failure, open the `.txt` report matching the failed class, such as `com.weatherlab.tests.FavoriteTests.txt`. The corresponding files under `evidence` use the failed method name, for example:
+
+```text
+fav004_userCanRemoveSavedCity__.png
+fav004_userCanRemoveSavedCity__.html
+```
+
+The PNG shows what the browser displayed at failure time. The HTML preserves the page structure for selector and application-state investigation.
 
 ## Start or inspect a run from PowerShell
 
@@ -90,4 +140,3 @@ Use an organization-approved GitHub App or fine-grained token stored as an appli
 - No artifact: setup failed before Maven created results; inspect Java/checkout/configuration steps.
 
 Follow `FAILURE-GUIDE.md` before deciding whether to change the application, test, data, or environment.
-
