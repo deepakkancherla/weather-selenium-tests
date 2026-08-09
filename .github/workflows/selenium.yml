@@ -1,0 +1,121 @@
+name: Selenium Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Tests to run
+        required: true
+        default: smoke
+        type: choice
+        options: [smoke, regression, registration, authentication, weather, favorites, session]
+      browser:
+        description: Browser
+        required: true
+        default: chrome
+        type: choice
+        options: [chrome, firefox]
+      base_url:
+        description: Deployed application URL
+        required: true
+        default: https://weather-app-nine-vert-81.vercel.app
+        type: string
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 8 * * *"
+  repository_dispatch:
+    types: [weather-app-deployed]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: selenium-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-tests:
+    name: ${{ github.event.inputs.suite || github.event.client_payload.suite || 'automatic' }} / ${{ github.event.inputs.browser || 'chrome' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      DEFAULT_BASE_URL: https://weather-app-nine-vert-81.vercel.app
+      FIREBASE_WEB_API_KEY: ${{ vars.FIREBASE_WEB_API_KEY }}
+
+    steps:
+      - name: Check out Selenium repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Select run settings
+        id: settings
+        shell: bash
+        env:
+          INPUT_SUITE: ${{ github.event.inputs.suite }}
+          INPUT_BROWSER: ${{ github.event.inputs.browser }}
+          INPUT_BASE_URL: ${{ github.event.inputs.base_url }}
+          DISPATCH_SUITE: ${{ github.event.client_payload.suite }}
+          DISPATCH_BASE_URL: ${{ github.event.client_payload.base_url }}
+          CONFIGURED_BASE_URL: ${{ vars.TEST_BASE_URL }}
+        run: |
+          suite="smoke"
+          browser="${INPUT_BROWSER:-chrome}"
+          base_url="${INPUT_BASE_URL:-${DISPATCH_BASE_URL:-${CONFIGURED_BASE_URL:-$DEFAULT_BASE_URL}}}"
+          if [[ "$GITHUB_EVENT_NAME" == "schedule" ]]; then suite="regression"; fi
+          if [[ -n "$INPUT_SUITE" ]]; then suite="$INPUT_SUITE"; fi
+          if [[ -n "$DISPATCH_SUITE" ]]; then suite="$DISPATCH_SUITE"; fi
+          echo "suite=$suite" >> "$GITHUB_OUTPUT"
+          echo "browser=$browser" >> "$GITHUB_OUTPUT"
+          echo "base_url=$base_url" >> "$GITHUB_OUTPUT"
+
+      - name: Show browser version
+        if: steps.settings.outputs.browser == 'chrome'
+        run: google-chrome --version
+
+      - name: Run selected Selenium tests
+        shell: bash
+        env:
+          SUITE: ${{ steps.settings.outputs.suite }}
+          BROWSER: ${{ steps.settings.outputs.browser }}
+          BASE_URL: ${{ steps.settings.outputs.base_url }}
+        run: |
+          arguments=(--batch-mode --no-transfer-progress test "-DbaseUrl=$BASE_URL" "-Dbrowser=$BROWSER" -Dheadless=true)
+          if [[ "$SUITE" != "regression" ]]; then arguments+=("-Dgroups=$SUITE"); fi
+          mvn "${arguments[@]}"
+
+      - name: Publish run summary
+        if: always()
+        shell: bash
+        env:
+          SUITE: ${{ steps.settings.outputs.suite }}
+          BROWSER: ${{ steps.settings.outputs.browser }}
+          BASE_URL: ${{ steps.settings.outputs.base_url }}
+        run: |
+          {
+            echo "## Selenium run"
+            echo "- Suite: $SUITE"
+            echo "- Browser: $BROWSER"
+            echo "- Application: $BASE_URL"
+            echo "- Automation commit: $GITHUB_SHA"
+            echo "- Detailed JUnit results and failure evidence are attached below."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload JUnit reports and failure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selenium-results-${{ github.run_number }}
+          path: |
+            target/surefire-reports/
+            target/evidence/
+          if-no-files-found: warn
+          retention-days: 14
+

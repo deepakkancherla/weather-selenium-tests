@@ -1,95 +1,93 @@
-# Pipeline guide
+# GitHub Actions pipeline guide
 
-## Plain-language overview
+The workflow is named **Selenium Tests** and lives in `.github/workflows/selenium.yml`. It runs on GitHub-hosted Linux using Java 21 and a headless browser.
 
-The pipeline is an automatic quality gate. After the application is built and placed in a test environment, it asks this repository to run the appropriate browser tests. It then preserves the result and evidence.
+## When it runs
 
-## Pipeline types
-
-### Application deployment smoke test
-
-Runs after an application version is deployed to a test environment.
-
-1. The application pipeline deploys a specific commit.
-2. It triggers this repository with the application URL and commit SHA.
-3. The Selenium pipeline starts Chrome in headless mode.
-4. It creates disposable test data.
-5. It runs the Smoke suite.
-6. It cleans up the data.
-7. It returns pass or fail and publishes evidence.
-8. The application pipeline promotes only when its required quality gate passes.
-
-### Automation pull-request validation
-
-Runs when the framework, test cases, or test data change.
-
-1. Compile the automation project.
-2. Run framework/unit checks that do not need the application.
-3. When a compatible environment is available, run affected Selenium tests.
-4. Require review for test-case behavior changes.
-
-### Nightly regression
-
-Runs all active regression tests against the shared test environment. It reports product defects, test defects, environment problems, and external-service problems separately.
-
-### Manual run
-
-Allows an authorized person to select the environment, browser, suite, and application URL for troubleshooting or release validation.
-
-## Runtime inputs
-
-| Input | Example | Meaning |
+| Trigger | Suite | Purpose |
 |---|---|---|
-| Base URL | `https://test.example.com` | Application deployment to test |
-| Environment | `test` | Selects safe non-secret settings |
-| Application SHA | `a81c23f` | Exact application version |
-| Browser | `chrome` | Browser used for the run |
-| Headless | `true` | Runs without a visible window in CI |
-| Suite/tag | `smoke` | Tests selected for this run |
-| Run ID | Pipeline-generated | Connects data, logs, and reports |
+| Push to `main` | Smoke | Quickly verify published automation changes |
+| Pull request | Smoke | Prevent a broken framework change from merging |
+| Every day at 08:00 UTC | Regression (all implemented tests) | Find broader regressions |
+| Run workflow button | Person chooses suite/browser/URL | Investigation or release check |
+| `weather-app-deployed` repository event | Smoke unless sender specifies another suite | Cross-repository deployment integration |
 
-## Required result evidence
+## What happens in one run
 
-Every run should retain:
+1. GitHub checks out this Selenium repository.
+2. It installs Temurin Java 21 and restores the Maven cache.
+3. It chooses the suite, browser, and deployed application URL.
+4. Maven compiles the framework.
+5. Selenium starts Chrome or Firefox in headless mode.
+6. Tests create isolated Firebase users, use the UI, and clean the users up.
+7. Maven returns success only when every selected test passes.
+8. GitHub publishes a readable summary and uploads JUnit reports plus failure evidence for 14 days.
 
-- Test result and duration
-- Application commit/version
-- Automation commit/version
-- Environment and browser
-- Screenshot on failure
-- Page source on failure, with sensitive data removed
-- Browser console output
-- Application or emulator logs when available
-- Human-readable HTML report
+## View pipeline tests in GitHub
 
-## Pass behavior
+Repository owner `deepakkancherla` already has access.
 
-- Mark the quality gate successful.
-- Publish the report.
-- Allow the next deployment stage when all other gates also pass.
+1. Open `https://github.com/deepakkancherla/weather-selenium-tests`.
+2. Select **Actions**.
+3. Select **Selenium Tests** on the left.
+4. Select a run to see each step and its logs.
+5. On the run's Summary page, download `selenium-results-<run number>` under **Artifacts**.
 
-## Failure behavior
+An artifact contains `surefire-reports` for all tests and `evidence` screenshots/page HTML when a test fails.
 
-- Mark the gate failed.
-- Upload evidence even when cleanup also fails.
-- Do not automatically rewrite, delete, or disable the failing test.
-- Follow the failure guide to identify ownership.
-- Rerun only when there is evidence of an infrastructure-related interruption.
+## Start a manual run in GitHub
 
-## Suggested schedule
+1. Open **Actions** > **Selenium Tests**.
+2. Select **Run workflow**.
+3. Keep branch `main`.
+4. Choose a suite and browser.
+5. Enter the Vercel or preview URL to test.
+6. Select the green **Run workflow** button.
 
-| Trigger | Tests | Browser |
-|---|---|---|
-| Every test deployment | Smoke | Chrome |
-| Automation pull request | Framework checks and affected tests | Chrome |
-| Nightly | Full regression | Chrome |
-| Weekly or pre-release | Full regression | Chrome and Firefox |
+Use `smoke` for a quick check. Use `regression` for every implemented case. Feature choices are `registration`, `authentication`, `weather`, `favorites`, and `session`.
 
-## Security
+## Start or inspect a run from PowerShell
 
-- Use the CI secret store for credentials.
-- Give the pipeline access only to the test environment.
-- Do not print secrets in command lines or reports.
-- Restrict deployment-trigger permissions to trusted workflows.
-- Review third-party pipeline actions before use and pin approved versions according to organizational policy.
+```powershell
+gh workflow run selenium.yml --repo deepakkancherla/weather-selenium-tests -f suite=smoke -f browser=chrome -f base_url=https://weather-app-nine-vert-81.vercel.app
+gh run list --repo deepakkancherla/weather-selenium-tests --workflow selenium.yml
+gh run watch RUN_ID --repo deepakkancherla/weather-selenium-tests --exit-status
+```
+
+## Repository configuration
+
+The workflow understands these GitHub Actions repository variables:
+
+| Variable | Purpose |
+|---|---|
+| `TEST_BASE_URL` | Default shared test deployment used for automatic runs |
+| `FIREBASE_WEB_API_KEY` | Public Firebase web configuration key used by disposable-user setup |
+
+Repository variables are under **Settings > Secrets and variables > Actions > Variables**. Private credentials, if ever added, belong under **Secrets**, never Variables or source code.
+
+## Trigger from the separate application repository
+
+Cross-repository triggers require explicit credentials because GitHub does not allow one private repository's default token to start another repository automatically. The application pipeline should send a `repository_dispatch` event named `weather-app-deployed` with:
+
+```json
+{
+  "event_type": "weather-app-deployed",
+  "client_payload": {
+    "base_url": "https://deployed-preview.example.com",
+    "suite": "smoke",
+    "application_sha": "the-application-commit"
+  }
+}
+```
+
+Use an organization-approved GitHub App or fine-grained token stored as an application-repository secret. Do not copy a personal token into either repository. Until that credential is approved, the push, pull-request, nightly, and manual triggers work independently.
+
+## Reading pass or failure
+
+- Green check: every selected test passed and cleanup completed.
+- Red X: open **Run selected Selenium tests**, note the case ID, then download the artifact.
+- Cancelled: a newer run on the same branch replaced an older one, or a person cancelled it.
+- No artifact: setup failed before Maven created results; inspect Java/checkout/configuration steps.
+
+Follow `FAILURE-GUIDE.md` before deciding whether to change the application, test, data, or environment.
 

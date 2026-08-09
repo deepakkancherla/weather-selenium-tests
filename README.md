@@ -1,76 +1,61 @@
 # Weather Favorites Selenium tests
 
-## Purpose
+This separate repository tests the deployed [Weather Favorites application](https://weather-app-nine-vert-81.vercel.app) as a user would: it opens a real browser, creates or signs in a disposable Firebase user, searches for weather, manages favorites, and signs out.
 
-This repository contains the end-to-end browser tests for the Weather Favorites application. It is independent of the application source repository so it can follow a separate QA review, release, and execution process.
+No application source code is stored here. This separation lets the QA automation have its own reviewers, history, releases, and GitHub Actions pipeline.
 
-The documentation is written so product owners, managers, developers, and testers can understand what is covered without reading Java code.
+## What works today
 
-## What this repository will contain
+- Java 21, Maven, Selenium 4, and JUnit 5 framework
+- Chrome and Firefox driver creation through Selenium Manager
+- Page objects using stable `data-testid` selectors
+- Unique Firebase users created by each account test and deleted afterward
+- Deterministic mock weather for repeatable UI assertions
+- Smoke, full regression, and feature-specific suites
+- Screenshot and HTML page capture when a test fails
+- GitHub Actions on every change, nightly, manually, or from an application deployment event
 
-- Human-readable test cases with permanent IDs
-- Java, Selenium, JUnit 5, and Maven test code
-- Page objects and reusable page components
-- Test-data builders and cleanup utilities
-- Environment configuration without secrets
-- Smoke and regression suite definitions
-- Pipeline workflows
-- Test reports, screenshots, browser logs, and other failure evidence
+## Run it
+
+From PowerShell in this repository:
+
+```powershell
+.\scripts\run-tests.ps1 -Suite smoke -Browser chrome -Headless $true
+```
+
+To watch the browser locally:
+
+```powershell
+.\scripts\run-tests.ps1 -Suite smoke -Browser chrome -Headless $false
+```
+
+`regression` runs every implemented test. Other valid suites are `registration`, `authentication`, `weather`, `favorites`, and `session`.
 
 ## Documentation map
 
-| Document | Audience | Purpose |
-|---|---|---|
-| [Installation guide](docs/INSTALLATION.md) | New contributors | Software, access, verification, and planned setup commands |
-| [Test strategy](docs/TEST-STRATEGY.md) | Everyone | Scope, priorities, risks, and testing approach |
-| [Test catalog](docs/TEST-CATALOG.md) | Everyone | Every currently planned test, organized by user flow |
-| [Change impact guide](docs/CHANGE-IMPACT-GUIDE.md) | Developers and QA | What must be checked or updated after each type of change |
-| [Test-data guide](docs/TEST-DATA-GUIDE.md) | QA and developers | How users and favorites are safely created and removed |
-| [Pipeline guide](docs/PIPELINE-GUIDE.md) | Everyone | When tests run and what happens after a pass or failure |
-| [Failure guide](docs/FAILURE-GUIDE.md) | Everyone | How to classify and investigate failed tests |
-| [Traceability matrix](docs/TRACEABILITY.md) | Product and QA | Mapping between user flows, requirements, and test cases |
+| Document | Plain-language purpose |
+|---|---|
+| [Installation](docs/INSTALLATION.md) | What must be installed and how to verify it |
+| [Test cases](docs/TEST-CATALOG.md) | What each test proves and whether it is automated |
+| [Test data](docs/TEST-DATA-GUIDE.md) | Where accounts/weather come from and how cleanup works |
+| [Pipeline](docs/PIPELINE-GUIDE.md) | When GitHub runs tests and how anyone with access can run/view them |
+| [Changes](docs/CHANGE-IMPACT-GUIDE.md) | Exactly what to update when the application changes |
+| [Failures](docs/FAILURE-GUIDE.md) | How to investigate a red test without hiding defects |
+| [Strategy](docs/TEST-STRATEGY.md) | Scope, priorities, and testing principles |
+| [Traceability](docs/TRACEABILITY.md) | Which user requirement maps to which test ID |
 
-## Test suites
+## Source layout
 
-| Suite | Meaning | Intended runtime |
-|---|---|---|
-| Smoke | A small set proving the most important journeys work | Every application deployment |
-| Regression | All functional end-to-end scenarios | Nightly and before a release |
-| Authentication | Account creation, login, validation, and logout | When authentication changes |
-| Weather | Search and weather-display behavior | When API/display behavior changes |
-| Favorites | Save, retain, and remove favorite cities | When persistence changes |
+| Folder | Meaning |
+|---|---|
+| `src/test/java/.../tests` | Readable scenarios and assertions |
+| `src/test/java/.../pages` | Browser actions and selectors for each screen |
+| `src/test/java/.../data` | Unique test-user creation and cleanup |
+| `src/test/java/.../driver` | Browser configuration |
+| `src/test/java/.../support` | Failure screenshots and page source |
+| `.github/workflows` | GitHub Actions pipeline |
+| `docs` | Non-technical and contributor guides |
 
-## Planned commands
+## Important rule
 
-These commands will become active after the framework is implemented:
-
-```powershell
-mvn test -DbaseUrl=http://localhost:5173 -Denvironment=local -Dbrowser=chrome -Dheadless=false
-mvn test -DbaseUrl=https://test.example.com -Denvironment=test -Dbrowser=chrome -Dheadless=true -Dgroups=smoke
-```
-
-## Test-case lifecycle
-
-Every test case has one of these states:
-
-- **Planned:** agreed coverage that has not been automated.
-- **Automated:** implemented and running in the expected pipeline.
-- **Blocked:** cannot run because of a recorded dependency or defect.
-- **Retired:** behavior was intentionally removed; history remains in Git.
-
-Tests are not silently deleted. When behavior changes, the test case, implementation, and traceability entry are updated together.
-
-## Repository rules
-
-- Each automated test includes its test-case ID in its display name.
-- Tests must not depend on execution order.
-- Each test owns or safely resets its data.
-- Secrets must not be committed.
-- Page objects perform UI actions; test classes describe behavior and assertions.
-- Fixed sleeps are prohibited; tests wait for observable conditions.
-- A retry cannot be used to hide a product defect or unstable test.
-- Production data must never be created, modified, or deleted by this suite.
-
-## Current status
-
-The repository, test strategy, and initial test catalog have been created. Test implementation has not started.
+When intended behavior changes, update the catalog, test implementation, and traceability together. Do not change a failing expectation merely to make the pipeline green; first confirm that the product requirement really changed.

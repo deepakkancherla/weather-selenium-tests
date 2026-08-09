@@ -1,67 +1,70 @@
-# Change impact guide
+# What to update when the application changes
 
-## Purpose
+Start with one question: **Did the intended user behavior change, or did only the implementation change?** A failing test is not permission to rewrite the expectation. Confirm intended behavior with the product owner first.
 
-This guide answers: “Something changed in the application—what else must we check?”
+## Exact change map
 
-## Quick reference
+| Application change | Test IDs to review | Selenium file to change | Data/config to check | First suite to run |
+|---|---|---|---|---|
+| Login/register field, label, or button selector | REG-*, AUTH-* | `pages/LoginPage.java` | None unless accepted values changed | `authentication` |
+| Password/email rules or message | REG-003..005, AUTH-002..003 | Corresponding test assertion; `LoginPage` only for actions | `TestDataFactory.java` | `authentication` |
+| Successful login destination | REG-001, AUTH-001, AUTH-005 | `LoginPage.java`, `DashboardPage.java` | None | `smoke` |
+| Profile menu or logout | AUTH-005 | `DashboardPage.java` | None | `authentication` |
+| Search input/button/results | WEATHER-001..004 | `DashboardPage.java` | Mock-weather behavior | `weather` |
+| Weather content or units | WEATHER-001, 005, 006 | Weather assertions/page object | App mock fixture | `weather` |
+| Save/remove favorite control | FAV-001..004, 006 | `DashboardPage.java` | Existing Firebase user cleanup | `favorites` |
+| Favorites storage/security rules | FAV-* | Usually tests stay; update data client only if cleanup changes | Firebase rules/project | `favorites` |
+| Firebase project/auth configuration | REG-001, AUTH-*, FAV-*, SESSION-* | `TestConfig.java` only if configuration names change | GitHub Actions variables | `smoke` |
+| Application URL | All | No Java change | `TEST_BASE_URL`, workflow manual input | `smoke` |
+| Browser support | All | `DriverFactory.java` | Workflow browser choice | `smoke`, then `regression` |
+| A `data-testid` value | Every case using that control | Relevant page object only | None | Affected feature |
 
-| Application change | Test cases to review | Automation area to review | Data/configuration to review |
-|---|---|---|---|
-| Registration fields | REG-* | Registration page object | User builder and validation inputs |
-| Password rules | REG-004, REG-005, AUTH-* | Registration/login actions | Valid and invalid password sets |
-| Login form or flow | AUTH-* | Login page object and session helper | Test users and authentication setup |
-| Route protection | AUTH-004, AUTH-005, SESSION-* | Navigation/session helpers | Base URL and session fixtures |
-| City search input/results | WEATHER-001 to WEATHER-004 | Search component/page object | City fixtures and geocoding stubs |
-| Weather fields or units | WEATHER-001, WEATHER-005, WEATHER-006 | Weather result component | Weather API fixtures |
-| Favorite controls | FAV-001, FAV-002, FAV-004 | Favorites component/page object | Favorite builders and cleanup |
-| Favorite storage/schema | FAV-* | Test-support API/database client | Seed and cleanup formats |
-| User privacy rules | AUTH-004, FAV-005 | Login and favorites flows | Two-user datasets and Firebase rules |
-| Error messages | Relevant negative cases | Assertion text or message component | Error fixtures/stubs |
-| Test IDs/selectors | All using changed controls | Relevant page object only | None unless behavior also changed |
-| Deployment URL | Smoke tests | Runtime configuration | Environment configuration/secrets |
-| Browser support | Broad regression | Driver factory/capabilities | Pipeline browser matrix |
+## Four common examples
 
-## Step-by-step review
+### A button is renamed but behavior is unchanged
 
-### 1. Understand the user-visible change
+If only visible text changes and the stable `data-testid` remains the same, the page object normally needs no change. Update an assertion only if it intentionally verifies that visible wording.
 
-Write one sentence describing what a user could do before and what the user can do afterward. If this cannot be explained clearly, the requirement needs clarification before tests are changed.
+### A `data-testid` changes
 
-### 2. Find affected test cases
+Search the repository for the old value, change it in `LoginPage.java` or `DashboardPage.java`, run that feature suite, then run Smoke. Do not copy the selector into each test class.
 
-Search the test catalog by feature section and permanent ID. Consider successful behavior, validation, errors, permissions, saved data, and logout/session behavior.
+### Validation behavior changes
 
-### 3. Identify the smallest automation layer to change
+Keep the permanent case ID, update its plain-language row in `TEST-CATALOG.md`, change the matching test input/expectation, and update `TRACEABILITY.md` if coverage changed. Run Authentication and then Smoke.
 
-- Locator changed only: update the page object.
-- Input values changed: update the test-data builder or JSON data.
-- User-visible result changed: update the test assertion and test catalog.
-- Workflow changed: update the test steps and page actions.
-- Database/API changed: update setup and cleanup clients, then verify isolation.
-- Environment changed: update runtime configuration, not test code.
+### A new user flow is added
 
-### 4. Decide whether this is a product defect or intended behavior
+1. Add permanent case IDs and expected outcomes to the catalog.
+2. Add only reusable actions to a page object.
+3. Add independent test methods whose names include the IDs.
+4. Add data creation and cleanup together.
+5. Add appropriate JUnit tags.
+6. Update traceability.
+7. Run the feature suite and full regression before review.
 
-A failing test should not automatically be rewritten. Compare the result with the accepted requirement. Change the test only when the required behavior intentionally changed or the previous test was incorrect.
+## Commands after a change
 
-### 5. Prove compatibility
+```powershell
+# Example: login changed
+.\scripts\run-tests.ps1 -Suite authentication -Headless $true
+.\scripts\run-tests.ps1 -Suite smoke -Headless $true
 
-Run the affected automation branch against the matching application deployment. Record both commit SHAs in the result.
+# Before merging a larger behavioral change
+.\scripts\run-tests.ps1 -Suite regression -Headless $true
+```
 
-### 6. Update documentation
+Then push a branch or open a pull request. GitHub automatically runs Smoke and keeps its results under Actions.
 
-Update the test catalog, traceability table, and any test-data or pipeline instructions affected by the change.
+## Review checklist
 
-## Pull-request checklist
-
-- [ ] Work-item or requirement is linked.
-- [ ] Affected test IDs are listed.
-- [ ] Intended behavior is distinguished from a defect.
-- [ ] Page objects use stable test IDs.
-- [ ] Test data remains independent and disposable.
-- [ ] No secret or real-user information is committed.
-- [ ] Relevant smoke tests pass against the intended application version.
-- [ ] Failure evidence was reviewed.
-- [ ] Documentation and traceability are current.
+- [ ] Intended behavior was confirmed; this is not hiding a product defect.
+- [ ] Every affected permanent test ID was reviewed.
+- [ ] Page selectors remain in page objects, not copied into tests.
+- [ ] Test data is unique and cleanup supports the new behavior.
+- [ ] No real user data, token, password, or private key was committed.
+- [ ] Catalog and traceability describe the new behavior.
+- [ ] Affected feature suite passed.
+- [ ] Smoke passed against the matching application deployment.
+- [ ] Full regression ran when the change crossed several sections.
 

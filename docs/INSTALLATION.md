@@ -1,129 +1,83 @@
 # Installation and setup
 
-## Who this guide is for
+## Required software
 
-This guide helps a new contributor prepare a computer to develop and run the Selenium framework. The framework has not been implemented yet, so commands marked **planned** will become active as code is added.
+| Install | Minimum | Why |
+|---|---:|---|
+| Git | Current supported version | Download and version the repository |
+| Java Development Kit | 21 | Compile and run the tests |
+| Apache Maven | 3.8.8 | Download dependencies and execute JUnit |
+| Google Chrome | Current stable | Default test browser |
+| GitHub account | Repository access | View and manually run pipeline tests |
+| GitHub CLI (`gh`) | Current version | Optional; view/run pipelines from PowerShell |
 
-## Accounts and access
+Firefox is optional. Node.js and Firebase CLI are needed only if you also run the application locally; they are not required when testing the Vercel deployment.
 
-| Access | Purpose |
-|---|---|
-| GitHub account | Read the repositories, contribute changes, and view pipelines |
-| Application test environment | Run browser tests against a deployed application |
-| Dedicated test credentials | Create and remove non-production test users and favorites |
-| Firebase access, if assigned | Use the emulator or approved test project for test-data setup |
+Selenium Manager discovers the matching browser driver automatically. Do not copy `chromedriver.exe` into this repository.
 
-A contributor should receive only the access needed for their role. Personal or production accounts must not be used as automation test accounts.
-
-## Software to install
-
-| Software | Why it is needed | Required? |
-|---|---|---|
-| Git | Downloads and versions the automation project | Yes |
-| GitHub CLI (`gh`) | Publishes changes and helps inspect GitHub workflows | Yes for publishing |
-| Java Development Kit 21 | Compiles and runs the planned Java test framework | Yes |
-| Apache Maven 3.9 or newer | Downloads declared Java dependencies and runs tests | Yes |
-| Google Chrome | Primary browser for local and CI smoke tests | Yes |
-| Mozilla Firefox | Secondary browser compatibility coverage | Optional initially |
-| Node.js current LTS and npm | Starts the application and Firebase emulators when running the complete system locally | Required for full local runs |
-| Firebase CLI | Starts local Auth and Firestore emulators | Required for full local runs |
-| Visual Studio Code or IntelliJ IDEA | Edits Java, configuration, and documentation | Recommended |
-
-Use organization-approved distributions and installers on a managed company computer. For Java, an approved OpenJDK 21 distribution is sufficient.
-
-## Verify the installation on Windows
-
-Open PowerShell and run each command separately:
+## Verify Windows installation
 
 ```powershell
 git --version
-gh --version
 java --version
 javac --version
 mvn --version
-node --version
-npm --version
-npx firebase-tools --version
-```
-
-Chrome can be verified by opening it normally. Selenium Manager will handle compatible browser-driver discovery when the framework creates a browser session, so a manually downloaded `chromedriver.exe` should not be committed or configured unless an organizational environment specifically requires it.
-
-## Important Java check
-
-The `java --version`, `javac --version`, and `mvn --version` output should all refer to the intended JDK 21 installation. If Maven reports a different Java home, correct the machine's approved Java configuration before troubleshooting Selenium.
-
-## Authenticate GitHub CLI
-
-Run:
-
-```powershell
-gh auth login -h github.com
 gh auth status
 ```
 
-Use the organization-approved authentication method and authorize organization SSO when required. Never commit a GitHub token.
+Java, `javac`, and Maven should all report Java 21. Open Chrome once normally to confirm it is installed.
 
-## Planned framework dependencies
-
-Maven will download these from the repository's future `pom.xml`; they should not be manually copied into the project:
-
-- Selenium Java
-- JUnit 5
-- AssertJ
-- Jackson for structured test data
-- A reporting library selected during implementation
-
-Exact versions will be pinned in `pom.xml` and updated through reviewed changes.
-
-## Planned local test flow
-
-Once the application and framework exist:
-
-1. Start the application and Firebase emulators from the application repository.
-2. Confirm the application URL opens in a browser.
-3. Run the Selenium tests from this repository.
-4. Review the console result and generated report.
-5. Stop local services when finished.
-
-The planned test command is:
+## Download and run
 
 ```powershell
-mvn test -DbaseUrl=http://localhost:5173 -Denvironment=local -Dbrowser=chrome -Dheadless=false
+git clone https://github.com/deepakkancherla/weather-selenium-tests.git
+cd weather-selenium-tests
+.\scripts\run-tests.ps1 -Suite smoke -Browser chrome -Headless $true
 ```
 
-The command will become authoritative only after the framework configuration is implemented and verified.
+Maven downloads dependencies on the first run, so the first run is slower and needs Maven Central access. A successful run ends with `BUILD SUCCESS`.
 
-## CI installation behavior
+## Useful commands
 
-Contributors do not manually install tools on a GitHub Actions runner. The workflow will:
+```powershell
+# All implemented tests
+.\scripts\run-tests.ps1 -Suite regression
 
-1. Check out the automation repository.
-2. Install the declared Java version.
-3. Restore the Maven dependency cache.
-4. Make Chrome available.
-5. Start or connect to the intended application environment.
-6. Run the selected test suite.
-7. Upload reports and failure evidence.
+# Only login/account tests with a visible browser
+.\scripts\run-tests.ps1 -Suite authentication -Headless $false
 
-## Secrets and local configuration
+# A different application deployment
+.\scripts\run-tests.ps1 -Suite smoke -BaseUrl https://your-preview.example.com
+```
 
-- Store CI credentials in GitHub Actions secrets or the organization's approved secret manager.
-- Store approved local-only values in an ignored file or environment variables.
-- Commit an example file containing names and descriptions, but never real secret values.
-- Do not include passwords or tokens in Maven commands, logs, screenshots, or reports.
+The equivalent direct Maven command is:
 
-## Common company-computer restrictions
+```powershell
+mvn test -Dgroups=smoke -DbaseUrl=https://weather-app-nine-vert-81.vercel.app -Dbrowser=chrome -Dheadless=true
+```
 
-Package registries, browsers, PowerShell scripts, Java distributions, GitHub, or Firebase may be controlled by organizational policy. Use approved mirrors and request IT access for proxy, certificate, SSO, or installation problems. Do not bypass security controls to make a test run.
+## Configuration
 
-## Ready-to-run checklist
+| PowerShell parameter | Maven property | Environment variable | Default |
+|---|---|---|---|
+| `BaseUrl` | `baseUrl` | `TEST_BASE_URL` | Vercel application URL |
+| `Browser` | `browser` | `TEST_BROWSER` | `chrome` |
+| `Headless` | `headless` | `TEST_HEADLESS` | `true` |
+| n/a | `firebaseApiKey` | `FIREBASE_WEB_API_KEY` | App public Firebase web API key |
 
-- [ ] Git works and this repository can be accessed.
-- [ ] GitHub CLI is authenticated when publishing is required.
-- [ ] Java 21 and `javac` work.
-- [ ] Maven uses Java 21.
-- [ ] Chrome opens successfully.
-- [ ] The application base URL is known.
-- [ ] Test-data access is approved.
-- [ ] Required secrets exist outside Git.
-- [ ] No production account or data will be used.
+Firebase's web API key identifies the project; it is not an administrator password. The tests authenticate as the disposable user they create and can delete only that user. Organization secrets must still stay in GitHub secrets or approved environment variables.
+
+## Reports
+
+- JUnit XML/text: `target/surefire-reports`
+- Failure screenshots and page HTML: `target/evidence`
+
+`target` is ignored by Git because evidence is generated for each run and can contain page content.
+
+## Common problems
+
+- `mvn` is not recognized: install Maven and add its `bin` directory to `PATH`.
+- Maven reports the wrong Java: correct `JAVA_HOME` to JDK 21 according to organization policy.
+- Browser cannot start: update Chrome and rerun; Selenium Manager resolves a compatible driver.
+- Dependency download is blocked: ask IT for approved Maven Central/proxy access.
+- Every generated login fails: confirm Firebase Email/Password authentication is enabled and the project matches the app.

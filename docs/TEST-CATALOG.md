@@ -1,261 +1,76 @@
-# Test catalog
+# Test cases by user flow
 
-## How to read this document
+This is the business-readable inventory of browser tests. Each ID is permanent and appears in the Java method name. **Automated** means code exists and runs in GitHub Actions. **Planned** means the scenario is agreed but still needs a safe, deterministic implementation.
 
-Each test has a permanent ID. **Smoke** tests run after every deployment. **Regression** tests run nightly and before releases. Status is initially **Planned** until code is implemented and running in CI.
+## 1. Account registration
 
-## Section 1: Account registration
+| ID | What the person does | Expected result | Priority / suite | Status |
+|---|---|---|---|---|
+| REG-001 | Enters a new valid email, password, and matching confirmation | Account is created and the weather dashboard opens | Critical / Smoke | Automated |
+| REG-002 | Tries to create an account with an email that already exists | No duplicate account; a helpful message appears | High / Authentication | Planned |
+| REG-003 | Enters text that is not a valid email | Registration stops and explains the email problem | Medium / Authentication | Automated |
+| REG-004 | Enters a password shorter than six characters | Registration stops and explains the password rule | High / Authentication | Automated |
+| REG-005 | Enters two different passwords | Registration stops and explains that they do not match | Medium / Authentication | Automated |
 
-### REG-001 — Create an account with valid information
+## 2. Login and access
 
-- Priority: Critical
-- Suite: Smoke, Authentication
-- Status: Planned
-- Given: The visitor is not signed in and the email is not registered.
-- When: The visitor enters a valid email, enters an acceptable password, confirms it, and submits the form.
-- Then: The account is created and the user reaches the signed-in home page.
+| ID | What the person does | Expected result | Priority / suite | Status |
+|---|---|---|---|---|
+| AUTH-001 | Signs in with a registered email and correct password | Dashboard opens | Critical / Smoke | Automated |
+| AUTH-002 | Uses the right email and a wrong password | Access is denied without revealing sensitive details | High / Authentication | Automated |
+| AUTH-003 | Submits the empty login form | Login stops and identifies the missing/invalid email | Medium / Authentication | Automated |
+| AUTH-004 | Opens protected information while signed out | Login is shown and protected information remains hidden | Critical / Authentication | Planned; app is a single route, so a direct protected URL does not yet exist |
+| AUTH-005 | Opens the profile menu and signs out | Login page returns | Critical / Smoke | Automated |
 
-### REG-002 — Reject an email that is already registered
+## 3. City search and weather
 
-- Priority: High
-- Suite: Regression, Authentication
-- Status: Planned
-- Given: An account already exists for the email address.
-- When: The visitor tries to register with that email.
-- Then: The account is not duplicated and an understandable message is shown.
+| ID | What the person does | Expected result | Priority / suite | Status |
+|---|---|---|---|---|
+| WEATHER-001 | Searches for Austin | Austin weather and a temperature appear | Critical / Smoke | Automated with mock weather |
+| WEATHER-002 | Searches where several places have the same name | The selected city, region, and country are used | High / Weather | Planned; needs multiple-location fixture |
+| WEATHER-003 | Searches for a place with no match | A clear no-result message appears | Medium / Weather | Planned; needs no-result fixture |
+| WEATHER-004 | Submits an empty search | Message says to enter a city | Medium / Weather | Automated |
+| WEATHER-005 | Searches while the provider is deliberately slow | Loading state appears and then clears | Low / Weather | Planned; needs delayed fixture |
+| WEATHER-006 | Searches while the weather provider deliberately fails | Temporary-error message appears and retry remains possible | High / Weather | Planned; needs error fixture |
 
-### REG-003 — Validate an invalid email address
+The automated weather tests use `?weatherMode=mock`. This confirms the UI reliably without asserting a live temperature that changes every hour.
 
-- Priority: Medium
-- Suite: Regression, Authentication
-- Status: Planned
-- Given: The registration page is open.
-- When: The visitor enters incorrectly formatted email text.
-- Then: Registration does not proceed and the email problem is explained.
+## 4. Favorite cities
 
-### REG-004 — Validate password requirements
+| ID | What the person does | Expected result | Priority / suite | Status |
+|---|---|---|---|---|
+| FAV-001 | Saves the displayed Austin weather | Austin appears once in favorites | Critical / Smoke | Automated |
+| FAV-002 | Attempts to save an already saved city | Only one entry exists | Medium / Favorites | Planned |
+| FAV-003 | Saves Austin, signs out, then signs back in | Austin is still saved | High / Favorites | Automated |
+| FAV-004 | Removes saved Austin | Austin disappears and the empty state returns | High / Favorites | Automated |
+| FAV-005 | Two different users view favorites | Each sees only their own data | Critical / Favorites | Planned |
+| FAV-006 | A new account opens favorites | Helpful empty state appears | Low / Favorites | Automated |
 
-- Priority: High
-- Suite: Regression, Authentication
-- Status: Planned
-- Given: The registration page is open.
-- When: The visitor enters a password that does not meet the documented rule.
-- Then: Registration does not proceed and the password rule is explained.
+## 5. Session and general usability
 
-### REG-005 — Require matching password confirmation
+| ID | What the person does | Expected result | Priority / suite | Status |
+|---|---|---|---|---|
+| SESSION-001 | Refreshes while signed in | Session remains active and dashboard returns | High / Regression | Automated |
+| SESSION-002 | Uses an intentionally expired session | Login is required and no protected action completes | High / Regression | Planned; needs expired-token control |
+| UI-001 | Completes primary flows using only a keyboard | Focus is visible and order/actions are usable | Medium / Regression | Planned |
+| UI-002 | Encounters a controlled unexpected error | Helpful recovery message appears without technical details | Medium / Regression | Planned; needs error fixture |
 
-- Priority: Medium
-- Suite: Regression, Authentication
-- Status: Planned
-- Given: The registration page is open.
-- When: Password and confirmation are different.
-- Then: Registration does not proceed and the mismatch is explained.
+## Automated source map
 
-## Section 2: Login and access
+| Section | Java class |
+|---|---|
+| Registration | `RegistrationTests` |
+| Login/logout | `AuthenticationTests` |
+| Search/weather | `WeatherSearchTests` |
+| Favorites | `FavoriteTests` |
+| Session | `SessionTests` |
 
-### AUTH-001 — Log in with valid credentials
+## When a case changes
 
-- Priority: Critical
-- Suite: Smoke, Authentication
-- Status: Planned
-- Given: A registered user is signed out.
-- When: The user enters the correct email and password.
-- Then: The signed-in home page appears.
-
-### AUTH-002 — Reject an incorrect password
-
-- Priority: High
-- Suite: Regression, Authentication
-- Status: Planned
-- Given: A registered user is signed out.
-- When: The user enters the correct email and an incorrect password.
-- Then: Access is denied without revealing sensitive account information.
-
-### AUTH-003 — Require mandatory login fields
-
-- Priority: Medium
-- Suite: Regression, Authentication
-- Status: Planned
-- Given: The login page is open.
-- When: The user submits without completing the required fields.
-- Then: Login does not proceed and required fields are identified.
-
-### AUTH-004 — Protect signed-in pages from signed-out visitors
-
-- Priority: Critical
-- Suite: Smoke, Authentication
-- Status: Planned
-- Given: The visitor is signed out.
-- When: The visitor opens a protected page URL directly.
-- Then: The visitor is sent to login and protected information is not displayed.
-
-### AUTH-005 — Log out
-
-- Priority: Critical
-- Suite: Smoke, Authentication
-- Status: Planned
-- Given: A user is signed in.
-- When: The user chooses to log out.
-- Then: The login page appears and protected pages can no longer be accessed without signing in again.
-
-## Section 3: City search and weather
-
-### WEATHER-001 — Search for a valid city
-
-- Priority: Critical
-- Suite: Smoke, Weather
-- Status: Planned
-- Given: A user is signed in and predictable weather data is available.
-- When: The user searches for a known city.
-- Then: The correct city, current conditions, unit, and forecast are displayed.
-
-### WEATHER-002 — Select the intended city when names are similar
-
-- Priority: High
-- Suite: Regression, Weather
-- Status: Planned
-- Given: More than one location matches the search text.
-- When: The user chooses one result.
-- Then: Weather is shown for the selected city, region, and country.
-
-### WEATHER-003 — Handle a city with no result
-
-- Priority: Medium
-- Suite: Regression, Weather
-- Status: Planned
-- Given: A user is signed in.
-- When: The search text has no matching location.
-- Then: A clear empty-state message appears and no old result is presented as the new result.
-
-### WEATHER-004 — Require search input
-
-- Priority: Medium
-- Suite: Regression, Weather
-- Status: Planned
-- Given: The search control is empty.
-- When: The user attempts to search.
-- Then: No request is submitted and the required input is identified.
-
-### WEATHER-005 — Show progress while weather loads
-
-- Priority: Low
-- Suite: Regression, Weather
-- Status: Planned
-- Given: A weather response is deliberately delayed in the test environment.
-- When: The user starts a search.
-- Then: A loading indication is shown and is removed when the result appears.
-
-### WEATHER-006 — Recover from a weather-service error
-
-- Priority: High
-- Suite: Regression, Weather
-- Status: Planned
-- Given: The test weather provider returns a controlled error.
-- When: The user searches for a city.
-- Then: The application explains that weather is temporarily unavailable and allows another attempt.
-
-## Section 4: Favorite cities
-
-### FAV-001 — Save a city as a favorite
-
-- Priority: Critical
-- Suite: Smoke, Favorites
-- Status: Planned
-- Given: A signed-in user has searched for a city that is not already saved.
-- When: The user chooses to save it.
-- Then: The city appears once in the user's favorites.
-
-### FAV-002 — Prevent duplicate favorites
-
-- Priority: Medium
-- Suite: Regression, Favorites
-- Status: Planned
-- Given: The city is already a favorite.
-- When: The user attempts to save the same city again.
-- Then: Only one favorite entry exists.
-
-### FAV-003 — Retain favorites after a new login
-
-- Priority: High
-- Suite: Regression, Favorites
-- Status: Planned
-- Given: A user has saved a favorite and logged out.
-- When: The same user logs in again.
-- Then: The previously saved city is still visible.
-
-### FAV-004 — Remove a favorite
-
-- Priority: High
-- Suite: Smoke, Favorites
-- Status: Planned
-- Given: A signed-in user has a saved favorite.
-- When: The user removes it and confirms if confirmation is required.
-- Then: The city disappears from favorites and remains removed after the page is refreshed.
-
-### FAV-005 — Keep each user's favorites private
-
-- Priority: Critical
-- Suite: Regression, Favorites
-- Status: Planned
-- Given: Two users have different saved favorites.
-- When: Each user signs in separately.
-- Then: Each user sees only their own favorites.
-
-### FAV-006 — Show an empty favorites state
-
-- Priority: Low
-- Suite: Regression, Favorites
-- Status: Planned
-- Given: A signed-in user has no favorites.
-- When: The favorites area is opened.
-- Then: A helpful empty-state message is displayed.
-
-## Section 5: Session and general usability
-
-### SESSION-001 — Keep the user signed in after refresh
-
-- Priority: High
-- Suite: Regression
-- Status: Planned
-- Given: A user is signed in.
-- When: The browser refreshes the page.
-- Then: The user remains signed in and can continue.
-
-### SESSION-002 — Handle an expired session safely
-
-- Priority: High
-- Suite: Regression
-- Status: Planned
-- Given: The user's session has expired in a controlled test setup.
-- When: The user attempts a protected action.
-- Then: The user is asked to sign in again and no protected action is completed.
-
-### UI-001 — Use the application with the keyboard for primary flows
-
-- Priority: Medium
-- Suite: Regression
-- Status: Planned
-- Given: A visitor or user uses keyboard navigation.
-- When: Registration, login, search, and logout controls are used without a mouse.
-- Then: Focus is visible, the order is logical, and each primary action can be completed.
-
-### UI-002 — Display an understandable unexpected-error state
-
-- Priority: Medium
-- Suite: Regression
-- Status: Planned
-- Given: A controlled unexpected error occurs.
-- When: The affected page is displayed.
-- Then: The user sees a helpful message and can navigate or retry without seeing technical details.
-
-## Updating this catalog
-
-When behavior changes:
-
-1. Find all affected test IDs.
-2. Update the plain-language steps and expected result.
-3. Update priority or suite if risk changed.
-4. Update the Selenium implementation in the same automation pull request.
-5. Update the traceability matrix.
-6. Retain removed scenarios in Git history and mark them **Retired** before deletion from active execution.
+1. Confirm the product behavior was intentionally changed, rather than assuming the test is wrong.
+2. Update the row above, keeping its permanent ID.
+3. Update the matching Java method and, if needed, the page object or test-data helper.
+4. Update `TRACEABILITY.md` if requirement coverage changed.
+5. Run the affected feature suite, then Smoke.
+6. Put all related updates in the same pull request so reviewers see the complete change.
 

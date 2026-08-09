@@ -2,11 +2,5 @@ target/
 .idea/
 .vscode/
 *.iml
-allure-results/
-allure-report/
-test-output/
-screenshots/
-logs/
-.env
-*.local.properties
+.DS_Store
 

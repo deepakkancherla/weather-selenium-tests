@@ -1,76 +1,59 @@
 # Test-data guide
 
-## Plain-language principle
+## What data the tests use
 
-Every test should start from a known situation and leave the environment clean. One test must not depend on another test having run first.
+| Data | Source | Is it shared? | Cleanup |
+|---|---|---|---|
+| User email/password | Generated uniquely for one test | No | User deletes itself through Firebase Auth REST API |
+| Favorite cities | Written by that signed-in user through the UI | No | Removed when the Firebase user is deleted |
+| Weather/location | Application's deterministic `weatherMode=mock` response | Read-only shared fixture | None needed |
+| Application URL/browser | Runtime setting | Shared configuration | None needed |
 
-## Data categories
+The suite never uses either owner's personal Gmail account. A generated email looks like `selenium+auth001-a1b2c3d4@example.com`. The random suffix prevents two pipeline jobs from using the same account.
 
-### Fixed reference data
+## Lifecycle of one account test
 
-Examples are city names, expected units, validation boundaries, and controlled weather responses. These can be kept as reviewed JSON resources or Java builders because they contain no secrets or personal data.
+1. `TestDataFactory` creates a unique email and strong password in memory.
+2. Most tests create the account directly through Firebase Auth REST, because registration itself is not what those tests are measuring.
+3. Registration tests create the account through the visible UI.
+4. Selenium performs only the user behavior under test.
+5. If the test fails, the framework saves a screenshot and page HTML.
+6. `BaseUiTest` signs in through Firebase REST and calls the Firebase delete-account endpoint.
+7. The browser closes even if cleanup encounters a problem.
 
-### Generated user data
+The REST client authenticates as the disposable user. It does not use Firebase Admin or a service-account key.
 
-Accounts should use unique, recognizable addresses, for example:
+## Source files
 
-```text
-selenium+AUTH-001+<run-id>@example.test
-```
+| File | Responsibility |
+|---|---|
+| `TestDataFactory.java` | Unique email and password format |
+| `TestUser.java` | Email/password value object |
+| `FirebaseTestDataClient.java` | Create, sign in, and delete disposable users |
+| `BaseUiTest.java` | Track every test user and invoke cleanup |
+| `TestConfig.java` | Firebase web API key and application URL |
 
-The run ID makes parallel execution safe and makes abandoned test data identifiable.
+## Rules for adding data
 
-### Secrets
+- Never commit a real person's email, password, access token, service account, or private key.
+- Never make one test depend on data created by another test.
+- Create the minimum data needed for the scenario.
+- Register through the UI only when registration is the behavior being tested.
+- Add cleanup at the same time as setup.
+- Do not run these write tests against a production Firebase project.
+- Use mock weather for functional assertions; do not expect an exact live temperature.
 
-Passwords, service credentials, tokens, and cloud configuration that grants access must be stored in CI secrets or approved local environment variables. They must never appear in Git, reports, screenshots, or console logs.
+## If the application data changes
 
-## Setup order
+| Change | Update | Then run |
+|---|---|---|
+| Password rule | `TestDataFactory`, affected REG/AUTH cases and catalog | `authentication`, then `smoke` |
+| Firebase project/API key | `FIREBASE_WEB_API_KEY` repository variable; do not hard-code a private credential | `smoke` |
+| Authentication provider | `FirebaseTestDataClient` and auth page object | `authentication`, then `regression` |
+| Favorite document format/security rule | Data cleanup logic if needed and all FAV cases | `favorites`, then `smoke` |
+| Weather response fields | App mock fixture and weather assertions | `weather`, then `smoke` |
 
-1. Generate a unique run ID.
-2. Create the required user through a test-support API, Firebase emulator, or approved administration API.
-3. Create only the favorites needed by the test.
-4. Open the browser and perform the behavior under test.
-5. Capture evidence if the test fails.
-6. Delete the user's favorites and account through the setup API.
-7. Record cleanup failures separately so hidden data buildup is visible.
+## Cleanup failure
 
-Selenium should not navigate through unrelated screens to prepare a test. Registration is performed through the UI only in registration tests.
-
-## Local and CI data
-
-Firebase Auth and Firestore emulators provide disposable data. Each CI job should start from a clean emulator state and may load a small approved baseline fixture.
-
-## Deployed test-environment data
-
-- Use a dedicated non-production Firebase project.
-- Prefix or tag all generated records with the automation run ID.
-- Use least-privilege credentials for setup and cleanup.
-- Run scheduled cleanup for abandoned automation records.
-- Never reuse a human employee's account.
-
-## Production
-
-The functional suite must not create, modify, or delete production data. A future production smoke check should be read-only unless explicit safeguards and approval are designed.
-
-## External weather fixtures
-
-Controlled fixtures should cover:
-
-- A successful city and weather response
-- Multiple cities with the same name
-- No matching city
-- A delayed response
-- Service unavailable or timeout
-- Missing optional weather fields
-
-Live conditions change, so a Selenium test must not assert an exact live temperature or forecast.
-
-## Data-change checklist
-
-- [ ] Test-data format matches the application contract.
-- [ ] Existing fixtures are still meaningful.
-- [ ] New boundary or error data has been added where required.
-- [ ] Setup and cleanup both support the new schema.
-- [ ] Parallel tests cannot share or overwrite records.
-- [ ] Logs and reports do not expose secrets.
+If an account remains after a failed run, its `selenium+<case-id>-<random>` email makes it recognizable. Check the pipeline log for the originating case and fix cleanup before allowing repeated buildup. Do not manually delete broad collections or real-user records.
 
